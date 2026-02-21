@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Configurar WiFi ESP32</title>
+
+<style>
+body{
+  margin:0;
+  font-family: Arial;
+  background: linear-gradient(135deg,#3b0a63,#1a0033);
+  color:white;
+  text-align:center;
+  padding-top:80px;
+}
+
+h1{
+  font-size:40px;
+  background: linear-gradient(90deg,#ff00ff,#00ffff);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+
+input{
+  width:260px;
+  height:45px;
+  margin:10px;
+  border-radius:10px;
+  border:none;
+  padding:8px;
+  font-size:16px;
+}
+
+button{
+  width:220px;
+  height:55px;
+  margin:15px;
+  border:none;
+  border-radius:12px;
+  background: linear-gradient(45deg,#00ffff,#0077ff);
+  color:white;
+  font-size:16px;
+  cursor:pointer;
+  box-shadow:0 0 20px #00ffff;
+}
+
+button:hover{
+  transform:scale(1.05);
+}
+
+.qr-box{
+  margin-top:40px;
+}
+
+img{
+  border-radius:12px;
+  box-shadow:0 0 25px #ff00ff;
+}
+</style>
+</head>
+
+<body>
+
+<h1>CONFIGURAR WIFI ESP32</h1>
+
+<input type="text" id="ssid" placeholder="Nombre de red"><br>
+<input type="password" id="password" placeholder="Contraseña"><br>
+
+<button onclick="connectBluetooth()">Conectar Bluetooth</button><br>
+<button onclick="sendWifi()">Enviar WiFi</button>
+
+<div class="qr-box">
+  <h3>Escanea para abrir en otro dispositivo</h3>
+  <img id="qrImage" width="200">
+</div>
+
+<script>
+let device;
+let characteristic;
+
+// -------- GENERAR QR AUTOMÁTICO --------
+const urlActual = window.location.href;
+document.getElementById("qrImage").src =
+"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" 
++ encodeURIComponent(urlActual);
+
+
+// -------- CONECTAR BLUETOOTH --------
+async function connectBluetooth(){
+  try{
+    device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: []
+    });
+
+    const server = await device.gatt.connect();
+    alert("Bluetooth conectado al ESP32");
+  }
+  catch(error){
+    alert("Error Bluetooth: " + error);
+  }
+}
+
+
+// -------- ENVIAR WIFI --------
+async function sendWifi(){
+  if(!device){
+    alert("Primero conecta Bluetooth");
+    return;
+  }
+
+  const ssid = document.getElementById("ssid").value;
+  const pass = document.getElementById("password").value;
+
+  if(ssid === "" || pass === ""){
+    alert("Completa todos los campos");
+    return;
+  }
+
+  // Formato que espera el ESP32:
+  // SSID,PASSWORD\n
+  const datos = ssid + "," + pass + "\n";
+
+  const encoder = new TextEncoder();
+  const data = encoder.encode(datos);
+
+  try{
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
+    const characteristic = await service.getCharacteristic('00001101-0000-1000-8000-00805f9b34fb');
+    await characteristic.writeValue(data);
+    alert("Datos WiFi enviados");
+  }
+  catch(error){
+    alert("Error enviando datos: " + error);
+  }
+}
+</script>
+
+</body>
+</html>
